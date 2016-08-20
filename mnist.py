@@ -38,8 +38,8 @@ Y_test = np_utils.to_categorical(y_test, n_classes)
 ###################################################################
 
 # this layer accepts a tuple (input and mask) and returns the product of the two.
-dropout = Lambda(lambda args: args[0] * args[1], 
-				 output_shape=lambda args: K.get_shape(args[0]))
+dropout_in = Lambda(lambda args: args[0] * args[1], output_shape = (n_in,))
+dropout_layer = Lambda(lambda args: args[0] * args[1], output_shape = (n_layer,))
 #Example:
 #out1 = dropout([x, maskx])
 
@@ -62,7 +62,7 @@ mask4 = K.dropout(K.ones((n_batch, n_layer)), p)
 softmax_layer = Dense(10, activation='softmax')
 
 # apply model
-out1 = layer1(dropout([x, maskx]))
+out1 = layer1(dropout_in([x, maskx]))
 out1 = layer2(mask1 * out1)
 out1 = layer3(mask2 * out1)
 out1 = layer4(mask3 * out1)
