@@ -38,7 +38,10 @@ Y_test = np_utils.to_categorical(y_test, n_classes)
 ###################################################################
 
 # this layer accepts a tuple (input and mask) and returns the product of the two.
-dropout_in = Lambda(lambda args: args[0] * args[1], output_shape = (n_in,))
+def add(args):
+	x, mask = args
+	return x * mask
+dropout_in = Lambda(add, output_shape = (n_in,))
 dropout_layer = Lambda(lambda args: args[0] * args[1], output_shape = (n_layer,))
 #Example:
 #out1 = dropout([x, maskx])
