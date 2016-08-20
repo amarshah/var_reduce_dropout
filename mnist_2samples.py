@@ -12,7 +12,7 @@ from keras.datasets import mnist
 from keras.utils import np_utils
 
 
-n_batch = 32
+n_batch = 20
 n_in = 784
 n_out = 10
 n_layer = 1024
