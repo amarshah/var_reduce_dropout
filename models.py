@@ -16,18 +16,17 @@ class LossHistory(Callback):
 
 
 def evaluate(model, X, Y, n_batch, n_mc):
-	batches = len(X_train) / n_batch
+	batches = len(X) / n_batch
 
 	score = None
 	for batch_ind in xrange(batches):
+		print batch_ind
 		batch = range(batch_ind*n_batch, (batch_ind+1)*n_batch)
 		s = evaluate_batch(model, X[batch], Y[batch], n_mc)
-		import pdb
-		pdb.set_trace()
 		if score is None:
 			score = s / batches
 		else:
-			score = score += s / batches
+			score += s / batches
 
 	return score
 
@@ -38,13 +37,13 @@ def evaluate_batch(model, X, Y, n_mc):
 	pred = None
 	for i in xrange(n_mc):
 		# learning_phase is 1 for train mode
-		s = get_softmax_output(X, 1)
+		s = get_final_output([X, 1])
 		if pred is None:
 			out = s / n_mc
 		else:
 			out = out + s / n_mc
 
-	return K.categorical_crossentropy(out, Y)
+	return K.categorical_crossentropy(out, Y).eval().mean()
 
 
 def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
@@ -155,7 +154,7 @@ def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
 			train_times.append(t)
 
 			if (batch_ind+1) % 10 == 0:
-				test_loss = evaluate(model, X_test, Y_test, n_batch, n_mc)
+				test_loss = evaluate(model, X_test, Y_test, n_batch, 10)
 				test_losses.append(test_loss)	
 				# test_loss = model.evaluate(X_test, Y_test, batch_size=n_batch)
 				# test_losses.append(test_loss[0])	
