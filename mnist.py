@@ -45,7 +45,7 @@ histories = []
 test_final = []
 for i in xrange(2):
 	out = run_model(n_batch, n_in, n_layer, n_out, n_epoch,
-		            p, dropout_masks = -1,
+		        p, -1,
 	      	        X_train, Y_train, X_test, Y_test)
 
 	batch_losses.append(out[0])

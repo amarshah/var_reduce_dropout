@@ -1,5 +1,11 @@
 # dropout_masks can be 1, 2, or -1 for control variate
 
+from keras.callbacks import Callback
+from keras import backend as K
+from keras.layers import Input, Dense, Lambda
+from keras.models import Model
+from keras.utils import np_utils
+
 class LossHistory(Callback):
 	def on_train_begin(self, logs={}):
 		self.losses = []
@@ -9,8 +15,8 @@ class LossHistory(Callback):
 
 
 def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
-	          p, dropout_masks = -1,
-	          X_train, Y_train, X_test, Y_test):
+	      p, dropout_masks,
+	      X_train, Y_train, X_test, Y_test):
 
 	# specify model
 	x = Input(batch_shape=(n_batch, n_in))
