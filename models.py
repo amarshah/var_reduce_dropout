@@ -16,34 +16,32 @@ class LossHistory(Callback):
 
 
 def evaluate(model, X, Y, n_batch, n_mc):
-	batches = len(X) / n_batch
+	get_final_output = K.function([model.layers[0].input, K.learning_phase()], 
+								   model.layers[-1].output)
 
+	def evaluate_batch(Xb, Yb):
+		pred = None
+		for i in xrange(n_mc):
+			# learning_phase is 1 for train mode
+			s = get_final_output([Xb, 1])
+			if pred is None:
+				pred = s / n_mc
+			else:
+				pred += s / n_mc
+		return K.categorical_crossentropy(pred, Yb).eval().mean()
+
+	batches = len(X) / n_batch
 	score = None
 	for batch_ind in xrange(batches):
 		print batch_ind
 		batch = range(batch_ind*n_batch, (batch_ind+1)*n_batch)
-		s = evaluate_batch(model, X[batch], Y[batch], n_mc)
+		score_batch = evaluate_batch(X[batch], Y[batch])
 		if score is None:
-			score = s / batches
+			score = score_batch / batches
 		else:
-			score += s / batches
+			score += score_batch / batches
 
 	return score
-
-def evaluate_batch(model, X, Y, n_mc):
-	get_final_output = K.function([model.layers[0].input, K.learning_phase()], 
-								   model.layers[-1].output)
-
-	pred = None
-	for i in xrange(n_mc):
-		# learning_phase is 1 for train mode
-		s = get_final_output([X, 1])
-		if pred is None:
-			out = s / n_mc
-		else:
-			out = out + s / n_mc
-
-	return K.categorical_crossentropy(out, Y).eval().mean()
 
 
 def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
