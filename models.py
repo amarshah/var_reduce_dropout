@@ -53,21 +53,23 @@ def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
 	      X_train, Y_train, X_test, Y_test):
 
 	# specify model
-	x = Input(batch_shape=(n_batch, n_in))
-	maskx = K.dropout(K.ones((n_batch, n_in)), p)
+	# x = Input(batch_shape=(n_batch, n_in))
+	x = Input(shape=(n_in,))
+	n_x = x.shape[0]
+	maskx = K.dropout(K.ones((n_x, n_in)), p)
 	# print((1. / p - maskx).eval())
 
 	layer1 = Dense(1024, activation='relu')
-	mask1 = K.dropout(K.ones((n_batch, n_layer)), p)
+	mask1 = K.dropout(K.ones((n_x, n_layer)), p)
 
 	layer2 = Dense(1024, activation='relu')
-	mask2 = K.dropout(K.ones((n_batch, n_layer)), p)
+	mask2 = K.dropout(K.ones((n_x, n_layer)), p)
 
 	layer3 = Dense(1024, activation='relu')
-	mask3 = K.dropout(K.ones((n_batch, n_layer)), p)
+	mask3 = K.dropout(K.ones((n_x, n_layer)), p)
 
 	layer4 = Dense(1024, activation='relu')
-	mask4 = K.dropout(K.ones((n_batch, n_layer)), p)
+	mask4 = K.dropout(K.ones((n_x, n_layer)), p)
 
 	softmax_layer = Dense(n_out, activation='softmax')
 
@@ -85,11 +87,11 @@ def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
 		mask7 = (1. / p - mask3)
 		mask8 = (1. / p - mask4)
 	elif dropout_masks == 2:
-		maskx2 = K.dropout(K.ones((n_batch, n_in)), p)
-		mask5 = K.dropout(K.ones((n_batch, n_layer)), p)
-		mask6 = K.dropout(K.ones((n_batch, n_layer)), p)
-		mask7 = K.dropout(K.ones((n_batch, n_layer)), p)
-		mask8 = K.dropout(K.ones((n_batch, n_layer)), p)
+		maskx2 = K.dropout(K.ones((n_x, n_in)), p)
+		mask5 = K.dropout(K.ones((n_x, n_layer)), p)
+		mask6 = K.dropout(K.ones((n_x, n_layer)), p)
+		mask7 = K.dropout(K.ones((n_x, n_layer)), p)
+		mask8 = K.dropout(K.ones((n_x, n_layer)), p)
 	elif dropout_masks == 1:
 		maskx2 = maskx
 		mask5 = mask1
