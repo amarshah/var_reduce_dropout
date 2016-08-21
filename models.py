@@ -5,6 +5,7 @@ from keras import backend as K
 from keras.layers import Input, Dense, Lambda
 from keras.models import Model
 from keras.utils import np_utils
+import time
 
 class LossHistory(Callback):
 	def on_train_begin(self, logs={}):
@@ -82,8 +83,11 @@ def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
 	out2 = layer4(dropout_neg_layer3(out2))
 	out2 = softmax_layer(dropout_neg_layer4(out2))
 
-	avg = Lambda(lambda args: 0.5 * (args[0] + args[1]), output_shape=(n_out,))
-	prediction = avg([out1, out2])
+	if dropout_masks==1:
+		prediction = out1
+	else:
+		avg = Lambda(lambda args: 0.5 * (args[0] + args[1]), output_shape=(n_out,))
+		prediction = avg([out1, out2])
 
 	model = Model(input=x, output=prediction)
 
@@ -91,14 +95,34 @@ def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
 	              loss='categorical_crossentropy',
 	              metrics=['accuracy'])
 
-	history = LossHistory()
-	epoch_history = model.fit(X_train, Y_train,
-    	      				  batch_size=n_batch, nb_epoch=n_epoch,
-        	  				  verbose=0, validation_data=(X_test, Y_test),
-          					  callbacks=[history])
+	# history = LossHistory()
+	# epoch_history = model.fit(X_train, Y_train,
+	# 	batch_size=n_batch, nb_epoch=n_epoch,
+	# 	verbose=0, validation_data=(X_test, Y_test),
+	# 	callbacks=[history])
 
-	batch_loss = history.losses
-	history = epoch_history.history
-	score = model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0)
+	# batch_loss = history.losses
+	# history = epoch_history.history
+	# score = model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0)
 
-	return batch_loss, history, score
+	# initial train and test loss
+	train_losses = [model.evaluate(X_train, Y_train, batch_size=n_batch)]
+	test_losses = [model.evaluate(X_test, Y_test, batch_size=n_batch)]
+	train_times = [0]
+
+	for e in xrange(n_epoch):
+		for batch_ind in xrange(len(X_train) / n_batch):
+			batch = range(batch_ind*batch_size : (batch_ind+1)*batch_size)
+			start = time.time()
+			train_loss = model.train(X_train[batch], Y_train[batch])
+			t = time.time() - start
+
+			train_losses.append(train_loss)	
+			train_times.append(train_loss)
+
+			if batch_ind+1 % 10 == 0:
+				test_loss = model.evaluate(X_test, Y_test, batch_size=n_batch)
+				test_losses.append(test_loss)	
+
+
+	return train_losses, test_losses, train_times

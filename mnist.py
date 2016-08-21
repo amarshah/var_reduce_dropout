@@ -15,6 +15,7 @@ import cPickle
 
 from models import run_model
 
+model_flag = -1
 n_batch = 20
 n_in = 784
 n_out = 10
@@ -40,21 +41,20 @@ Y_train = np_utils.to_categorical(y_train, n_classes)
 Y_test = np_utils.to_categorical(y_test, n_classes)
 
 ###################################################################
-batch_losses = []
-histories = []
-test_final = []
+train_losses = []
+test_losses = []
+train_times = []
 for i in xrange(2):
-	out = run_model(n_batch, n_in, n_layer, n_out, n_epoch,
-		        p, -1,
-	      	        X_train, Y_train, X_test, Y_test)
+	out = run_model(n_batch, n_in, n_layer, n_out, n_epoch, p, model_flag, 
+		X_train, Y_train, X_test, Y_test)
 
-	batch_losses.append(out[0])
-	histories.append(out[1])
-	test_final.append(out[2])
+	train_losses.append(out[0])
+	test_losses.append(out[1])
+	train_times.append(out[2])
 
-output = {"batch_loss" : batch_losses,
-		  "histories" : histories,
-		  "test_final" : test_final}
+output = {"train_losses" : train_losses,
+		  "test_losses" : test_losses,
+		  "train_times" : train_times}
 
 with open("new_model.pkl", "wb") as f:
 	cPickle.dump(output, f)
