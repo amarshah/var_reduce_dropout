@@ -106,21 +106,25 @@ model.compile(optimizer='adam',
               loss='categorical_crossentropy',
               metrics=['accuracy'])
 
-history = LossHistory()
-epoch_history = model.fit(X_train, Y_train,
-          				  batch_size=n_batch, nb_epoch=n_epoch,
-          				  verbose=0, validation_data=(X_test, Y_test),
-          				  callbacks=[history])
+batch_losses = []
+histories = []
+test_final = []
+for i in xrange(2):
+	history = LossHistory()
+	epoch_history = model.fit(X_train, Y_train,
+    	      				  batch_size=n_batch, nb_epoch=n_epoch,
+        	  				  verbose=0, validation_data=(X_test, Y_test),
+          					  callbacks=[history])
 
-score = model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0)
+	batch_losses[i] = history.losses
+	histories[i] = epoch_history.history
+	test_final[i] = model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0)
 
-output = {"batch_loss" : history.losses,
-		  "epoch_history" : epoch_history.history,
-		  "test_final" : score}
+
+output = {"batch_loss" : batch_losses,
+		  "epoch_history" : histories,
+		  "test_final" : test_final}
 
 with open("new_model.pkl", "wb") as f:
 	cPickle.dump(output, f)
-
-import pdb
-pdb.set_trace()
 
