@@ -15,6 +15,38 @@ class LossHistory(Callback):
 		self.losses.append(logs.get('loss'))
 
 
+def evaluate(model, X, Y, n_batch, n_mc):
+	batches = len(X_train) / n_batch
+
+	score = None
+	for batch_ind in xrange(batches):
+		batch = range(batch_ind*n_batch, (batch_ind+1)*n_batch)
+		s = evaluate_batch(model, X[batch], Y[batch], n_mc)
+		import pdb
+		pdb.set_trace()
+		if score is None:
+			score = s / batches
+		else:
+			score = score += s / batches
+
+	return score
+
+def evaluate_batch(model, X, Y, n_mc):
+	get_final_output = K.function([model.layers[0].input, K.learning_phase()], 
+								   model.layers[-1].output)
+
+	pred = None
+	for i in xrange(n_mc):
+		# learning_phase is 1 for train mode
+		s = get_softmax_output(X, 1)
+		if pred is None:
+			out = s / n_mc
+		else:
+			out = out + s / n_mc
+
+	return K.categorical_crossentropy(out, Y)
+
+
 def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
 	      p, dropout_masks,
 	      X_train, Y_train, X_test, Y_test):
@@ -123,8 +155,9 @@ def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
 			train_times.append(t)
 
 			if (batch_ind+1) % 10 == 0:
-				test_loss = model.evaluate(X_test, Y_test, batch_size=n_batch)
-				test_losses.append(test_loss[0])	
-
+				test_loss = evaluate(model, X_test, Y_test, n_batch, n_mc)
+				test_losses.append(test_loss)	
+				# test_loss = model.evaluate(X_test, Y_test, batch_size=n_batch)
+				# test_losses.append(test_loss[0])	
 
 	return train_losses, test_losses, train_times
