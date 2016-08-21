@@ -13,11 +13,11 @@ from keras.utils import np_utils
 from keras.callbacks import Callback
 
 class LossHistory(Callback):
-	def on_train_begin(self):
+	def on_train_begin(self, logs={}):
 		self.losses = []
 
 	def on_batch_end(self, batch, logs={}):
-		self.losses.append(log.get('loss'))
+		self.losses.append(logs.get('loss'))
 
 
 n_batch = 20
