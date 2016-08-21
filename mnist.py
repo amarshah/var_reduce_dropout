@@ -47,43 +47,38 @@ Y_test = np_utils.to_categorical(y_test, n_classes)
 
 ###################################################################
 
-# specify model
-x = Input(batch_shape=(n_batch, n_in))
-maskx = K.dropout(K.ones((n_batch, n_in)), p)
-# print((1. / p - maskx).eval())
+def run_model():
+	# specify model
+	x = Input(batch_shape=(n_batch, n_in))
+	maskx = K.dropout(K.ones((n_batch, n_in)), p)
+	# print((1. / p - maskx).eval())
 
-layer1 = Dense(1024, activation='relu')
-mask1 = K.dropout(K.ones((n_batch, n_layer)), p)
+	layer1 = Dense(1024, activation='relu')
+	mask1 = K.dropout(K.ones((n_batch, n_layer)), p)
 
-layer2 = Dense(1024, activation='relu')
-mask2 = K.dropout(K.ones((n_batch, n_layer)), p)
+	layer2 = Dense(1024, activation='relu')
+	mask2 = K.dropout(K.ones((n_batch, n_layer)), p)
 
-layer3 = Dense(1024, activation='relu')
-mask3 = K.dropout(K.ones((n_batch, n_layer)), p)
+	layer3 = Dense(1024, activation='relu')
+	mask3 = K.dropout(K.ones((n_batch, n_layer)), p)
 
-layer4 = Dense(1024, activation='relu')
-mask4 = K.dropout(K.ones((n_batch, n_layer)), p)
+	layer4 = Dense(1024, activation='relu')
+	mask4 = K.dropout(K.ones((n_batch, n_layer)), p)
 
-softmax_layer = Dense(n_out, activation='softmax')
-
-
-dropout_in = Lambda(lambda x: x * maskx, output_shape=(n_in,))
-dropout_layer1 = Lambda(lambda x: x * mask1, output_shape = (n_layer,))
-dropout_layer2 = Lambda(lambda x: x * mask2, output_shape = (n_layer,))
-dropout_layer3 = Lambda(lambda x: x * mask3, output_shape = (n_layer,))
-dropout_layer4 = Lambda(lambda x: x * mask4, output_shape = (n_layer,))
-
-dropout_neg_in = Lambda(lambda x: x * (1. / p - maskx), output_shape=(n_in,))
-dropout_neg_layer1 = Lambda(lambda x: x * (1. / p - mask1), output_shape = (n_layer,))
-dropout_neg_layer2 = Lambda(lambda x: x * (1. / p - mask2), output_shape = (n_layer,))
-dropout_neg_layer3 = Lambda(lambda x: x * (1. / p - mask3), output_shape = (n_layer,))
-dropout_neg_layer4 = Lambda(lambda x: x * (1. / p - mask4), output_shape = (n_layer,))
+	softmax_layer = Dense(n_out, activation='softmax')
 
 
-batch_losses = []
-histories = []
-test_final = []
-for i in xrange(2):
+	dropout_in = Lambda(lambda x: x * maskx, output_shape=(n_in,))
+	dropout_layer1 = Lambda(lambda x: x * mask1, output_shape = (n_layer,))
+	dropout_layer2 = Lambda(lambda x: x * mask2, output_shape = (n_layer,))
+	dropout_layer3 = Lambda(lambda x: x * mask3, output_shape = (n_layer,))
+	dropout_layer4 = Lambda(lambda x: x * mask4, output_shape = (n_layer,))
+
+	dropout_neg_in = Lambda(lambda x: x * (1. / p - maskx), output_shape=(n_in,))
+	dropout_neg_layer1 = Lambda(lambda x: x * (1. / p - mask1), output_shape = (n_layer,))
+	dropout_neg_layer2 = Lambda(lambda x: x * (1. / p - mask2), output_shape = (n_layer,))
+	dropout_neg_layer3 = Lambda(lambda x: x * (1. / p - mask3), output_shape = (n_layer,))
+	dropout_neg_layer4 = Lambda(lambda x: x * (1. / p - mask4), output_shape = (n_layer,))
 
 	# apply model
 	out1 = layer1(dropout_in(x))
@@ -117,13 +112,23 @@ for i in xrange(2):
         	  				  verbose=0, validation_data=(X_test, Y_test),
           					  callbacks=[history])
 
-	batch_losses.append(history.losses)
-	histories.append(epoch_history.history)
-	test_final.append(model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0))
+	batch_loss = history.losses
+	history = epoch_history.history
+	score = model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0)
 
+	return batch_loss, history, scores
+
+batch_losses = []
+histories = []
+test_final = []
+for i in xrange(2):
+	out = run_model()
+	batch_losses.append(out[0])
+	histories.append(out[1])
+	test_final..append(out[2])
 
 output = {"batch_loss" : batch_losses,
-		  "epoch_history" : histories,
+		  "histories" : histories,
 		  "test_final" : test_final}
 
 with open("new_model.pkl", "wb") as f:
