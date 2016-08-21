@@ -26,7 +26,7 @@ n_in = 784
 n_out = 10
 n_layer = 1024
 n_classes = 10
-n_epoch = 3
+n_epoch = 1
 p = 0.5
 
 # the data, shuffled and split between train and test sets
@@ -80,36 +80,37 @@ dropout_neg_layer3 = Lambda(lambda x: x * (1. / p - mask3), output_shape = (n_la
 dropout_neg_layer4 = Lambda(lambda x: x * (1. / p - mask4), output_shape = (n_layer,))
 
 
-# apply model
-out1 = layer1(dropout_in(x))
-out1 = layer2(dropout_layer1(out1))
-out1 = layer3(dropout_layer2(out1))
-out1 = layer4(dropout_layer3(out1))
-out1 = softmax_layer(dropout_layer4(out1))
-
-out2 = layer1(dropout_neg_in(x))
-out2 = layer2(dropout_neg_layer1(out2))
-out2 = layer3(dropout_neg_layer2(out2))
-out2 = layer4(dropout_neg_layer3(out2))
-out2 = softmax_layer(dropout_neg_layer4(out2))
-
-avg = Lambda(lambda args: 0.5 * (args[0] + args[1]), output_shape=(n_out,))
-prediction = avg([out1, out2])
-# prediction = out1
-# prediction = out2
-
-# this creates a model that includes
-# the Input layer and three Dense layers
-model = Model(input=x, output=prediction)
-
-model.compile(optimizer='adam',
-              loss='categorical_crossentropy',
-              metrics=['accuracy'])
-
 batch_losses = []
 histories = []
 test_final = []
 for i in xrange(2):
+
+	# apply model
+	out1 = layer1(dropout_in(x))
+	out1 = layer2(dropout_layer1(out1))
+	out1 = layer3(dropout_layer2(out1))
+	out1 = layer4(dropout_layer3(out1))
+	out1 = softmax_layer(dropout_layer4(out1))
+
+	out2 = layer1(dropout_neg_in(x))
+	out2 = layer2(dropout_neg_layer1(out2))
+	out2 = layer3(dropout_neg_layer2(out2))
+	out2 = layer4(dropout_neg_layer3(out2))
+	out2 = softmax_layer(dropout_neg_layer4(out2))
+
+	avg = Lambda(lambda args: 0.5 * (args[0] + args[1]), output_shape=(n_out,))
+	prediction = avg([out1, out2])
+	# prediction = out1
+	# prediction = out2
+
+	# this creates a model that includes
+	# the Input layer and three Dense layers
+	model = Model(input=x, output=prediction)
+
+	model.compile(optimizer='adam',
+	              loss='categorical_crossentropy',
+	              metrics=['accuracy'])
+
 	history = LossHistory()
 	epoch_history = model.fit(X_train, Y_train,
     	      				  batch_size=n_batch, nb_epoch=n_epoch,
