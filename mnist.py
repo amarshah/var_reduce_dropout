@@ -117,9 +117,9 @@ for i in xrange(2):
         	  				  verbose=0, validation_data=(X_test, Y_test),
           					  callbacks=[history])
 
-	batch_losses[i] = history.losses
-	histories[i] = epoch_history.history
-	test_final[i] = model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0)
+	batch_losses.append(history.losses)
+	histories.append(epoch_history.history)
+	test_final.append(model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0))
 
 
 output = {"batch_loss" : batch_losses,
