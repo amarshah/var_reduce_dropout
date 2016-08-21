@@ -106,23 +106,25 @@ def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
 	# score = model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0)
 
 	# initial train and test loss
-	train_losses = [model.evaluate(X_train, Y_train, batch_size=n_batch)]
-	test_losses = [model.evaluate(X_test, Y_test, batch_size=n_batch)]
+	out = model.evaluate(X_train, Y_train, batch_size=n_batch)
+	train_losses = [out[0]]
+	out = model.evaluate(X_test, Y_test, batch_size=n_batch)
+	test_losses = [out[0]]
 	train_times = [0]
 
 	for e in xrange(n_epoch):
 		for batch_ind in xrange(len(X_train) / n_batch):
-			batch = range(batch_ind*batch_size : (batch_ind+1)*batch_size)
+			batch = range(batch_ind*n_batch, (batch_ind+1)*n_batch)
 			start = time.time()
-			train_loss = model.train(X_train[batch], Y_train[batch])
+			train_loss = model.fit(X_train[batch], Y_train[batch], batch_size=n_batch, nb_epoch=1)
 			t = time.time() - start
+	
+			train_losses.append(train_loss.history['loss'][0])	
+			train_times.append(t)
 
-			train_losses.append(train_loss)	
-			train_times.append(train_loss)
-
-			if batch_ind+1 % 10 == 0:
+			if (batch_ind+1) % 10 == 0:
 				test_loss = model.evaluate(X_test, Y_test, batch_size=n_batch)
-				test_losses.append(test_loss)	
+				test_losses.append(test_loss[0])	
 
 
 	return train_losses, test_losses, train_times
