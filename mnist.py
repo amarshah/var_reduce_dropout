@@ -11,6 +11,7 @@ from keras.models import Model
 from keras.datasets import mnist
 from keras.utils import np_utils
 from keras.callbacks import Callback
+import cPickle
 
 class LossHistory(Callback):
 	def on_train_begin(self, logs={}):
@@ -25,7 +26,7 @@ n_in = 784
 n_out = 10
 n_layer = 1024
 n_classes = 10
-n_epoch = 4
+n_epoch = 3
 p = 0.5
 
 # the data, shuffled and split between train and test sets
@@ -106,14 +107,20 @@ model.compile(optimizer='adam',
               metrics=['accuracy'])
 
 history = LossHistory()
-model.fit(X_train, Y_train,
-          batch_size=n_batch, nb_epoch=n_epoch,
-          verbose=1, validation_data=(X_test, Y_test),
-          callbacks=[history])
+epoch_history = model.fit(X_train, Y_train,
+          				  batch_size=n_batch, nb_epoch=n_epoch,
+          				  verbose=0, validation_data=(X_test, Y_test),
+          				  callbacks=[history])
 
 score = model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0)
 
-print(score)
+output = {"batch_loss" : history.losses,
+		  "epoch_history" : epoch_history.history,
+		  "test_final" : score}
+
+with open("new_model.pkl", "wb") as f:
+	cPickle.dump(output, f)
+
 import pdb
 pdb.set_trace()
 
