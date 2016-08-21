@@ -6,6 +6,7 @@ from keras.layers import Input, Dense, Lambda
 from keras.models import Model
 from keras.utils import np_utils
 import time
+import numpy as np
 
 class LossHistory(Callback):
 	def on_train_begin(self, logs={}):
@@ -20,14 +21,17 @@ def evaluate(model, X, Y, n_batch, n_mc):
 								   model.layers[-1].output)
 
 	def evaluate_batch(Xb, Yb):
-		pred = None
-		for i in xrange(n_mc):
-			# learning_phase is 1 for train mode
-			s = get_final_output([Xb, 1])
-			if pred is None:
-				pred = s / n_mc
-			else:
-				pred += s / n_mc
+		# pred = None
+		# for i in xrange(n_mc):
+		# 	# learning_phase is 1 for train mode
+		# 	s = get_final_output([Xb, 1])
+		# 	if pred is None:
+		# 		pred = s / n_mc
+		# 	else:
+		# 		pred += s / n_mc
+		Xb_rep = np.tile(Xb, (n_mc, 1))
+		preds = get_final_output([Xb_rep, 1])
+		pred = preds.reshape(n_mc, len(Xb), Xb.shape[1]).sum(axis=0)
 		return K.categorical_crossentropy(pred, Yb).eval().mean()
 
 	batches = len(X) / n_batch
