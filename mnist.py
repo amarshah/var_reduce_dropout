@@ -10,6 +10,14 @@ from keras.layers import Input, Dense, Lambda
 from keras.models import Model
 from keras.datasets import mnist
 from keras.utils import np_utils
+from keras.callbacks import Callback
+
+class LossHistory(Callback):
+	def on_train_begin(self):
+		self.losses = []
+
+	def on_batch_end(self, batch, logs={}):
+		self.losses.append(log.get('loss'))
 
 
 n_batch = 20
@@ -97,9 +105,11 @@ model.compile(optimizer='adam',
               loss='categorical_crossentropy',
               metrics=['accuracy'])
 
-history = model.fit(X_train, Y_train,
-                    batch_size=n_batch, nb_epoch=n_epoch,
-                    verbose=1, validation_data=(X_test, Y_test))
+history = LossHistory()
+model.fit(X_train, Y_train,
+          batch_size=n_batch, nb_epoch=n_epoch,
+          verbose=1, validation_data=(X_test, Y_test),
+          callbacks=[history])
 
 score = model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0)
 
