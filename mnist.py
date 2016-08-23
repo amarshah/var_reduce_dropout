@@ -16,29 +16,30 @@ import cPickle
 from models import run_model
 import argparse
 
-parser = argparse.ArgumentParser(
-    description="training a model")
-parser.add_argument("model_flag", type=int, default=-1)
-parser.add_argument("n_runs", type=int, default=100)
+parser = argparse.ArgumentParser(description="training a model")
+parser.add_argument("dropout_flag", type=int, default=-1)
+parser.add_argument("n_layer", type=int, default=100)
+parser.add_argument("n_runs", type=int, default=20)
 parser.add_argument("n_mc", type=int, default=10)
+parser.add_argument("batch_norm")
 parser.add_argument("save_file")
 
 args = parser.parse_args()
 d = vars(args)
-model_flag = d["model_flag"]
-save_file = d["save_file"]
+dropout_flag = d["dropout_flag"]
+n_layer = d["n_layer"]
 n_runs = d["n_runs"]
 n_mc = d["n_mc"]
-# model_flag = -1
-# save_file = "new_model.pkl"
-# n_runs = 100
+batch_norm = d["batch_norm"]=="True"
+save_file = d["save_file"]
 
 n_batch = 20
+n_epoch = 1
+test_n_batch = 100
+
 n_in = 784
 n_out = 10
-n_layer = 1024
 n_classes = 10
-n_epoch = 1
 p = 0.5
 
 # the data, shuffled and split between train and test sets
@@ -62,18 +63,17 @@ train_losses = []
 test_losses = []
 train_times = []
 for i in xrange(n_runs):
-	out = run_model(n_batch, n_in, n_layer, n_out, n_epoch,
-		p, model_flag, n_mc,
-		X_train, Y_train, X_test, Y_test)
+	out = run_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm,
+		n_batch, n_epoch, n_mc, X_train, Y_train, X_test, Y_test, test_n_batch)	
 
 	train_losses.append(out[0])
 	test_losses.append(out[1])
 	train_times.append(out[2])
 
-output = {"train_losses" : train_losses,
-		  "test_losses" : test_losses,
-		  "train_times" : train_times}
+	output = {"train_losses" : train_losses,
+			  "test_losses" : test_losses,	
+			  "train_times" : train_times}
 
-with open(save_file, "wb") as f:
-	cPickle.dump(output, f)
+	with open(save_file, "wb") as f:
+		cPickle.dump(output, f)
 
