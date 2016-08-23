@@ -14,8 +14,25 @@ from keras.callbacks import Callback
 import cPickle
 
 from models import run_model
+import argparse
 
-model_flag = -1
+parser = argparse.ArgumentParser(
+    description="training a model")
+parser.add_argument("model_flag", type=int, default=-1)
+parser.add_argument("n_runs", type=int, default=100)
+parser.add_argument("n_mc", type=int, default=10)
+parser.add_argument("save_file")
+
+args = parser.parse_args()
+d = vars(args)
+model_flag = d["model_flag"]
+save_file = d["save_file"]
+n_runs = d["n_runs"]
+n_mc = d["n_mc"]
+# model_flag = -1
+# save_file = "new_model.pkl"
+# n_runs = 100
+
 n_batch = 20
 n_in = 784
 n_out = 10
@@ -44,8 +61,9 @@ Y_test = np_utils.to_categorical(y_test, n_classes)
 train_losses = []
 test_losses = []
 train_times = []
-for i in xrange(2):
-	out = run_model(n_batch, n_in, n_layer, n_out, n_epoch, p, model_flag, 
+for i in xrange(n_runs):
+	out = run_model(n_batch, n_in, n_layer, n_out, n_epoch,
+		p, model_flag, n_mc,
 		X_train, Y_train, X_test, Y_test)
 
 	train_losses.append(out[0])
@@ -56,6 +74,6 @@ output = {"train_losses" : train_losses,
 		  "test_losses" : test_losses,
 		  "train_times" : train_times}
 
-with open("new_model.pkl", "wb") as f:
+with open(save_file, "wb") as f:
 	cPickle.dump(output, f)
 

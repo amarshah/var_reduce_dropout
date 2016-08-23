@@ -21,17 +21,17 @@ def evaluate(model, X, Y, n_batch, n_mc):
 								   model.layers[-1].output)
 
 	def evaluate_batch(Xb, Yb):
-		# pred = None
-		# for i in xrange(n_mc):
-		# 	# learning_phase is 1 for train mode
-		# 	s = get_final_output([Xb, 1])
-		# 	if pred is None:
-		# 		pred = s / n_mc
-		# 	else:
-		# 		pred += s / n_mc
-		Xb_rep = np.tile(Xb, (n_mc, 1))
-		preds = get_final_output([Xb_rep, 1])
-		pred = preds.reshape(n_mc, len(Xb), Xb.shape[1]).sum(axis=0)
+		pred = None
+		for i in xrange(n_mc):
+			# learning_phase is 1 for train mode
+			s = get_final_output([Xb, 1])
+		 	if pred is None:
+		 		pred = s / n_mc
+		 	else:
+		 		pred += s / n_mc
+		# Xb_rep = np.tile(Xb, (n_mc, 1))
+		# preds = get_final_output([Xb_rep, 1])
+		# pred = preds.reshape(n_mc, len(Yb), Yb.shape[1]).mean(axis=0)
 		return K.categorical_crossentropy(pred, Yb).eval().mean()
 
 	batches = len(X) / n_batch
@@ -49,27 +49,26 @@ def evaluate(model, X, Y, n_batch, n_mc):
 
 
 def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
-	      p, dropout_masks,
+	      p, dropout_masks, n_mc,
 	      X_train, Y_train, X_test, Y_test):
 
 	# specify model
 	# x = Input(batch_shape=(n_batch, n_in))
 	x = Input(shape=(n_in,))
-	n_x = x.shape[0]
-	maskx = K.dropout(K.ones((n_x, n_in)), p)
+	maskx = K.dropout(K.ones((n_in,)), p)
 	# print((1. / p - maskx).eval())
 
 	layer1 = Dense(1024, activation='relu')
-	mask1 = K.dropout(K.ones((n_x, n_layer)), p)
+	mask1 = K.dropout(K.ones((n_layer,)), p)
 
 	layer2 = Dense(1024, activation='relu')
-	mask2 = K.dropout(K.ones((n_x, n_layer)), p)
+	mask2 = K.dropout(K.ones((n_layer,)), p)
 
 	layer3 = Dense(1024, activation='relu')
-	mask3 = K.dropout(K.ones((n_x, n_layer)), p)
+	mask3 = K.dropout(K.ones((n_layer,)), p)
 
 	layer4 = Dense(1024, activation='relu')
-	mask4 = K.dropout(K.ones((n_x, n_layer)), p)
+	mask4 = K.dropout(K.ones((n_layer,)), p)
 
 	softmax_layer = Dense(n_out, activation='softmax')
 
@@ -87,11 +86,11 @@ def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
 		mask7 = (1. / p - mask3)
 		mask8 = (1. / p - mask4)
 	elif dropout_masks == 2:
-		maskx2 = K.dropout(K.ones((n_x, n_in)), p)
-		mask5 = K.dropout(K.ones((n_x, n_layer)), p)
-		mask6 = K.dropout(K.ones((n_x, n_layer)), p)
-		mask7 = K.dropout(K.ones((n_x, n_layer)), p)
-		mask8 = K.dropout(K.ones((n_x, n_layer)), p)
+		maskx2 = K.dropout(K.ones((n_in)), p)
+		mask5 = K.dropout(K.ones((n_layer,)), p)
+		mask6 = K.dropout(K.ones((n_layer,)), p)
+		mask7 = K.dropout(K.ones((n_layer,)), p)
+		mask8 = K.dropout(K.ones((n_layer,)), p)
 	elif dropout_masks == 1:
 		maskx2 = maskx
 		mask5 = mask1
@@ -158,7 +157,9 @@ def run_model(n_batch, n_in, n_layer, n_out, n_epoch,
 			train_times.append(t)
 
 			if (batch_ind+1) % 10 == 0:
-				test_loss = evaluate(model, X_test, Y_test, n_batch, 10)
+				ind = np.arange(len(X_test))
+				np.random.shuffle(ind)
+				test_loss = evaluate(model, X_test[ind[:200]], Y_test[ind[:200]], n_batch, n_mc)
 				test_losses.append(test_loss)	
 				# test_loss = model.evaluate(X_test, Y_test, batch_size=n_batch)
 				# test_losses.append(test_loss[0])	
