@@ -21,8 +21,8 @@ parser.add_argument("dropout_flag", type=int, default=-1)
 parser.add_argument("n_layer", type=int, default=100)
 parser.add_argument("n_runs", type=int, default=20)
 parser.add_argument("n_mc", type=int, default=10)
-parser.add_argument("batch_norm")
-parser.add_argument("save_file")
+parser.add_argument("batch_norm", type=bool, default=False)
+parser.add_argument("save_file", type=str, default="save.pkl")
 
 args = parser.parse_args()
 d = vars(args)
@@ -51,8 +51,6 @@ X_train = X_train.astype('float32')
 X_test = X_test.astype('float32')
 X_train /= 255
 X_test /= 255
-X_train -= 0.5
-X_test -= 0.5
 print(X_train.shape[0], 'train samples')
 print(X_test.shape[0], 'test samples')
 
