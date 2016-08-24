@@ -19,6 +19,9 @@ class LossHistory(Callback):
 	def on_batch_end(self, batch, logs={}):
 		self.losses.append(logs.get('loss'))
 
+def accuracy(y_pred, y_true):
+	return np.mean(np.argmax(y_true, axis=-1) == np.argmax(y_pred, axis=-1))
+
 def evaluate_stoch(model, X, Y, n_batch, n_mc):
 	# model is the trained model for evaluation
 	# X, Y are test inputs and outputs respectively
@@ -34,7 +37,8 @@ def evaluate_stoch(model, X, Y, n_batch, n_mc):
 		else:
 			pred += softmaxs / n_mc
 
-	return K.categorical_crossentropy(pred, Y).eval().mean()
+	# return K.categorical_crossentropy(pred, Y).eval().mean()
+	return accuracy(pred, Y)
 
 def evaluate_non_stoch(model_non_stoch, model_stoch, X, Y, batch_norm, n_batch):
 	if batch_norm:
@@ -59,8 +63,10 @@ def evaluate_non_stoch(model_non_stoch, model_stoch, X, Y, batch_norm, n_batch):
 			deter_layer.beta.set_value(beta)
 			deter_layer.gamma.set_value(gamma)
 
-	test_loss = model_non_stoch.evaluate(X, Y, n_batch, verbose=0)
-	return test_loss[0]
+	# test_loss = model_non_stoch.evaluate(X, Y, n_batch, verbose=0)
+	# return test_loss[0]
+	softmaxs = model_non_stoch.predict(X, batch_size=n_batch, verbose=0)
+	return accuracy(softmaxs, Y)
 
 def apply_layers(input, layers):
 	output = input
@@ -70,7 +76,7 @@ def apply_layers(input, layers):
 	return output
 
 
-def define_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm):
+def define_model(n_batch, n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 	# n_in is the input dim
 	# n_layer is the number of hidden units in the hidden layers
 	# n_out is the number of outputs of the softmax
@@ -83,7 +89,7 @@ def define_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 	#   the non-stoch one uses the typical dropout approximation
 
 	# Naming convention: maskM_L where M is model # and L is layer #.
-	x = Input(shape=(n_in,))
+	x = Input(batch_shape=(n_batch, n_in))
 	layer1 = Dense(n_layer, activation='relu')
 	layer2 = Dense(n_layer, activation='relu')
 	layer3 = Dense(n_layer, activation='relu')
@@ -92,20 +98,20 @@ def define_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 	# TODO: add back n_batch for mask; you can do this using 
 	# n_batch = T.iscalar('n_batch') and pass it at run time or 
 	# using models with different batch sizes.
-	mask1_x = K.dropout(K.ones((n_in,)), p)
-	mask1_1 = K.dropout(K.ones((n_layer,)), p)
-	mask1_2 = K.dropout(K.ones((n_layer,)), p)
-	mask1_3 = K.dropout(K.ones((n_layer,)), p)
+	mask1_x = K.dropout(K.ones((n_batch, n_in)), p)
+	mask1_1 = K.dropout(K.ones((n_batch, n_layer)), p)
+	mask1_2 = K.dropout(K.ones((n_batch, n_layer)), p)
+	mask1_3 = K.dropout(K.ones((n_batch, n_layer)), p)
 	if dropout_flag == -1:
 		mask2_x = (1. / p - mask1_x)
 		mask2_1 = (1. / p - mask1_1)
 		mask2_2 = (1. / p - mask1_2)
 		mask2_3 = (1. / p - mask1_3)
 	elif dropout_flag == 2:
-		mask2_x = K.dropout(K.ones((n_in)), p)
-		mask2_1 = K.dropout(K.ones((n_layer,)), p)
-		mask2_2 = K.dropout(K.ones((n_layer,)), p)
-		mask2_3 = K.dropout(K.ones((n_layer,)), p)
+		mask2_x = K.dropout(K.ones((n_batch, n_in)), p)
+		mask2_1 = K.dropout(K.ones((n_batch, n_layer)), p)
+		mask2_2 = K.dropout(K.ones((n_batch, n_layer)), p)
+		mask2_3 = K.dropout(K.ones((n_batch, n_layer)), p)
 
 	def get_dropout_layer(mask, n, name):
 		return Lambda(lambda x: x * mask, output_shape=(n,), name=name)
@@ -182,7 +188,7 @@ def define_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 def run_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm,
 	n_batch, n_epoch, n_mc, X_train, Y_train, X_test, Y_test, test_n_batch):
 
-	model_stoch, model_non_stoch = define_model(n_in, n_layer, n_out,
+	model_stoch, model_non_stoch = define_model(n_batch, n_in, n_layer, n_out,
 									            p, dropout_flag, batch_norm)
 
 	optimizer = Adam(lr=0.0002)  # SGD(lr=1e-6, momentum=0.9)
@@ -230,6 +236,8 @@ def run_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm,
 		train_loss = model_stoch.fit(X_train[batch], Y_train[batch],
 			                         verbose=0, batch_size=n_batch, nb_epoch=1)
 		t = time.time() - start
+		import pdb
+		pdb.set_trace()
 
 		train_losses.append(train_loss.history['loss'][0])	
 		train_times.append(t)

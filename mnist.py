@@ -18,6 +18,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description="training a model")
 parser.add_argument("dropout_flag", type=int, default=-1)
+parser.add_argument("n_epoch", type=int, default=1)
 parser.add_argument("n_layer", type=int, default=100)
 parser.add_argument("n_runs", type=int, default=20)
 parser.add_argument("n_mc", type=int, default=10)
@@ -27,15 +28,15 @@ parser.add_argument("save_file", type=str, default="save.pkl")
 args = parser.parse_args()
 d = vars(args)
 dropout_flag = d["dropout_flag"]
+n_epoch = d["n_epoch"]
 n_layer = d["n_layer"]
 n_runs = d["n_runs"]
 n_mc = d["n_mc"]
 batch_norm = d["batch_norm"]=="True"
 save_file = d["save_file"]
 
-n_batch = 32
-n_epoch = 1
-test_n_batch = 100
+n_batch = 20
+test_n_batch = 20 # TODO: batch size has to be a divisor of len(X_test)
 
 n_in = 784
 n_out = 10
