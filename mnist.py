@@ -33,7 +33,7 @@ n_mc = d["n_mc"]
 batch_norm = d["batch_norm"]=="True"
 save_file = d["save_file"]
 
-n_batch = 20
+n_batch = 32
 n_epoch = 1
 test_n_batch = 100
 
@@ -51,6 +51,8 @@ X_train = X_train.astype('float32')
 X_test = X_test.astype('float32')
 X_train /= 255
 X_test /= 255
+X_train -= 0.5
+X_test -= 0.5
 print(X_train.shape[0], 'train samples')
 print(X_test.shape[0], 'test samples')
 

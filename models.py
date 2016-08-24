@@ -8,6 +8,7 @@ from keras.layers import Input, Dense, Lambda
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
 from keras.utils import np_utils
+from keras.optimizers import Adam, SGD
 import time
 import numpy as np
 
@@ -18,7 +19,7 @@ class LossHistory(Callback):
 	def on_batch_end(self, batch, logs={}):
 		self.losses.append(logs.get('loss'))
 
-def evaluate(model, X, Y, n_batch, n_mc):
+def evaluate_stoch(model, X, Y, n_batch, n_mc):
 	# model is the trained model for evaluation
 	# X, Y are test inputs and outputs respectively
 	# n_batch is batch_size for prediction
@@ -35,6 +36,43 @@ def evaluate(model, X, Y, n_batch, n_mc):
 
 	return K.categorical_crossentropy(pred, Y).eval().mean()
 
+def evaluate_non_stoch(model_non_stoch, model_stoch, X, Y, batch_norm, n_batch):
+
+	if batch_norm:
+		# need to set all the batch norm parameters
+		inds = []
+		i1 = i2 = 0
+		while model_stoch.layers[i1].name != "bn1":
+			i1 += 1
+		while model_non_stoch.layers[i2].name != "bn_non_stoch_1":
+			i2 += 1
+		inds.append([i1,i2])
+
+		while model_stoch.layers[i1].name != "bn2":
+			i1 += 1
+		while model_non_stoch.layers[i2].name != "bn_non_stoch_2":
+			i2 += 1
+		inds.append([i1,i2])
+
+		while model_stoch.layers[i1].name != "bn3":
+			i1 += 1
+		while model_non_stoch.layers[i2].name != "bn_non_stoch_3":
+			i2 += 1
+		inds.append([i1,i2])
+
+		for ind in inds:
+			model_non_stoch.layers[ind[1]].running_mean.set_value(
+				model_stoch.layers[ind[0]].running_mean.get_value())
+			model_non_stoch.layers[ind[1]].running_std.set_value(
+				model_stoch.layers[ind[0]].running_std.get_value())
+			model_non_stoch.layers[ind[1]].beta.set_value(
+				model_stoch.layers[ind[0]].beta.get_value())
+			model_non_stoch.layers[ind[1]].gamma.set_value(
+				model_stoch.layers[ind[0]].gamma.get_value())
+
+	test_loss = model_non_stoch.evaluate(X, Y, n_batch)
+
+	return test_loss[0]
 
 # def evaluate(model, X, Y, n_batch, n_mc, get_final_output):
 # 	def evaluate_batch(Xb, Yb):
@@ -90,15 +128,12 @@ def define_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 	# print((1. / p - maskx).eval())
 
 	layer1 = Dense(n_layer, activation='relu')
-	batchnorm1 = BatchNormalization()
 	mask1 = K.dropout(K.ones((n_layer,)), p)
 
 	layer2 = Dense(n_layer, activation='relu')
-	batchnorm2 = BatchNormalization()
 	mask2 = K.dropout(K.ones((n_layer,)), p)
 
 	layer3 = Dense(n_layer, activation='relu')
-	batchnorm3 = BatchNormalization()
 	mask3 = K.dropout(K.ones((n_layer,)), p)
 
 	softmax_layer = Dense(n_out, activation='softmax')
@@ -117,27 +152,35 @@ def define_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 	dropout_in = dropout_layer1 = dropout_layer2 \
 		= dropout_layer3 = dropout_layer4 = None
 	if dropout_flag != 0:
-		dropout_in = Lambda(lambda x: x * maskx, output_shape=(n_in,))
-		dropout_layer1 = Lambda(lambda x: x * mask1, output_shape = (n_layer,))
-		dropout_layer2 = Lambda(lambda x: x * mask2, output_shape = (n_layer,))
-		dropout_layer3 = Lambda(lambda x: x * mask3, output_shape = (n_layer,))
+		dropout_in = Lambda(lambda x: x * maskx,
+							output_shape=(n_in,), name="dropx")
+		dropout_layer1 = Lambda(lambda x: x * mask1,
+								output_shape = (n_layer,), name="drop1")
+		dropout_layer2 = Lambda(lambda x: x * mask2,
+								output_shape = (n_layer,), name="drop2")
+		dropout_layer3 = Lambda(lambda x: x * mask3,
+								output_shape = (n_layer,), name="drop3")
 
 	if dropout_flag == -1 or dropout_flag == 2:
-		dropout_neg_in = Lambda(lambda x: x * maskx2, output_shape=(n_in,))
-		dropout_neg_layer1 = Lambda(lambda x: x * mask4, output_shape = (n_layer,))
-		dropout_neg_layer2 = Lambda(lambda x: x * mask5, output_shape = (n_layer,))
-		dropout_neg_layer3 = Lambda(lambda x: x * mask6, output_shape = (n_layer,))
+		dropout_neg_in = Lambda(lambda x: x * maskx2,
+								output_shape = (n_in,), name="dropx2")
+		dropout_neg_layer1 = Lambda(lambda x: x * mask4,
+									output_shape = (n_layer,), name="drop4")
+		dropout_neg_layer2 = Lambda(lambda x: x * mask5,
+									output_shape = (n_layer,), name="drop5")
+		dropout_neg_layer3 = Lambda(lambda x: x * mask6,
+									output_shape = (n_layer,), name="drop6")
 
 	# apply model for pass 1
 	if batch_norm and dropout_flag != 0:
-		layers = [dropout_in, layer1, batchnorm1,
-				  dropout_layer1, layer2, batchnorm2,
-				  dropout_layer2, layer3, batchnorm3,
+		layers = [dropout_in, layer1, BatchNormalization(mode=2, name="bn1"),
+				  dropout_layer1, layer2, BatchNormalization(mode=2, name="bn2"),
+				  dropout_layer2, layer3, BatchNormalization(mode=2, name="bn3"),
 				  dropout_layer3, softmax_layer]
 	elif batch_norm and dropout_flag == 0:
-		layers = [layer1, batchnorm1,
-				  layer2, batchnorm2,
-				  layer3, batchnorm3,
+		layers = [layer1, BatchNormalization(mode=2, name="bn1"),
+				  layer2, BatchNormalization(mode=2, name="bn2"),
+				  layer3, BatchNormalization(mode=2, name="bn3"),
 				  softmax_layer]
 	elif dropout_flag != 0:
 		layers = [dropout_in, layer1,
@@ -152,9 +195,9 @@ def define_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 	# if necessary apply model for pass 2
 	if dropout_flag == -1  or dropout_flag == 2:
 		if batch_norm:
-			layers = [dropout_neg_in, layer1, batchnorm1,
-					  dropout_neg_layer1, layer2, batchnorm2,
-					  dropout_neg_layer2, layer3, batchnorm3,
+			layers = [dropout_neg_in, layer1, BatchNormalization(mode=2),
+					  dropout_neg_layer1, layer2, BatchNormalization(mode=2),
+					  dropout_neg_layer2, layer3, BatchNormalization(mode=2),
 					  dropout_neg_layer3, softmax_layer]
 		else:
 			layers = [dropout_neg_in, layer1,
@@ -173,9 +216,9 @@ def define_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 
 	# define non-stoch dropout model for testing
 	if batch_norm:
-		layers = [layer1, batchnorm1,
-				  layer2, batchnorm2,
-				  layer3, batchnorm3,
+		layers = [layer1, BatchNormalization(mode=2, name="bn_non_stoch_1"),
+				  layer2, BatchNormalization(mode=2, name="bn_non_stoch_2"),
+				  layer3, BatchNormalization(mode=2, name="bn_non_stoch_3"),
 				  softmax_layer]
 	else:
 		layers = [layer1, layer2, layer3, softmax_layer]
@@ -192,11 +235,12 @@ def run_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm,
 	model_stoch, model_non_stoch = define_model(n_in, n_layer, n_out,
 									            p, dropout_flag, batch_norm)
 
-	model_stoch.compile(optimizer='adam',
+	optimizer = Adam(lr=0.0002)#SGD(lr=1e-6, momentum=0.9)
+	model_stoch.compile(optimizer=optimizer,#"adam",
 	                    loss='categorical_crossentropy',
 	                    metrics=['accuracy'])
 
-	model_non_stoch.compile(optimizer='adam',
+	model_non_stoch.compile(optimizer="adam",
 	                    	loss='categorical_crossentropy',
 	                    	metrics=['accuracy'])
 
@@ -241,19 +285,15 @@ def run_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm,
 		train_times.append(t)
 
 		if b+1 in test_batches:
-			import pdb
-			pdb.set_trace()
-
 			print b+1
 			# ind = np.arange(len(X_test))
 			# np.random.shuffle(ind)
-			test_loss = evaluate(model_stoch, X_test, Y_test,
-								 test_n_batch, n_mc)
+			test_loss = evaluate_stoch(model_stoch, X_test, Y_test,
+							test_n_batch, n_mc)
 			test_losses_stoch.append(test_loss)
 
-			test_loss = model_non_stoch.evaluate(X_test, Y_test,
-												 batch_size=test_n_batch)
-			test_losses_non_stoch.append(test_loss[0])	
-
+			test_loss = evaluate_non_stoch(model_non_stoch, model_stoch,
+							X_test, Y_test, batch_norm, test_n_batch)
+			test_losses_non_stoch.append(test_loss)	
 
 	return train_losses, test_losses_stoch, test_losses_non_stoch, train_times
