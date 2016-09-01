@@ -40,6 +40,21 @@ def evaluate_stoch(model, X, Y, n_batch, n_mc):
 	# return K.categorical_crossentropy(pred, Y).eval().mean()
 	return accuracy(pred, Y)
 
+def compute_mc_probs(model, X, n_batch, n_mc):
+	# model is the trained model for evaluation
+	# X are test inputs
+	# n_batch is batch_size for prediction
+	# n_mc is number of forward passes
+	#	note that for models with 2 forward passes, 1 prediction already avgs 2 passes
+	# output is n_mc x n_test x n_output
+
+	output = np.zeros((n_mc, len(X), 10), dtype="float32")
+	for i in xrange(n_mc):
+		output[i, :, :] = model.predict(X, batch_size=n_batch, verbose=0)
+
+	return output
+
+
 def evaluate_non_stoch(model_non_stoch, model_stoch, X, Y, batch_norm, n_batch):
 	if batch_norm:
 		# need to set all the batch norm parameters; we assume 
@@ -80,9 +95,10 @@ def define_model(n_batch, n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 	# n_in is the input dim
 	# n_layer is the number of hidden units in the hidden layers
 	# n_out is the number of outputs of the softmax
-	# dropout_flag takes value 0,1,2 or -1
-	#	0,1,2 is the number of different masks to use per training batch
+	# dropout_flag takes value 0,1,2,4 or -1 or -2
+	#	0,1,2,4 is the number of different masks to use per training batch
 	#   -1 forces 2 masks per batch, where 1 mask is the mirror of the other
+	#   -2 has 4 masks per batch, 2 masks and their mirrors  
 	#
 	# the function outputs 2 models: 1 with stochastic dropout, 1 with no dropout
 	# 	the stoch one has stoch dropout even at test time	
@@ -102,16 +118,33 @@ def define_model(n_batch, n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 	mask1_1 = K.dropout(K.ones((n_batch, n_layer)), p)
 	mask1_2 = K.dropout(K.ones((n_batch, n_layer)), p)
 	mask1_3 = K.dropout(K.ones((n_batch, n_layer)), p)
-	if dropout_flag == -1:
+	if dropout_flag == -1 or dropout_flag == -2:
 		mask2_x = (1. / p - mask1_x)
 		mask2_1 = (1. / p - mask1_1)
 		mask2_2 = (1. / p - mask1_2)
 		mask2_3 = (1. / p - mask1_3)
-	elif dropout_flag == 2:
+	elif dropout_flag == 2 or dropout_flag == 4:
 		mask2_x = K.dropout(K.ones((n_batch, n_in)), p)
 		mask2_1 = K.dropout(K.ones((n_batch, n_layer)), p)
 		mask2_2 = K.dropout(K.ones((n_batch, n_layer)), p)
 		mask2_3 = K.dropout(K.ones((n_batch, n_layer)), p)
+
+	if dropout_flag == -2 or dropout_flag == 4:
+		mask3_x = K.dropout(K.ones((n_batch, n_in)), p)
+		mask3_1 = K.dropout(K.ones((n_batch, n_layer)), p)
+		mask3_2 = K.dropout(K.ones((n_batch, n_layer)), p)
+		mask3_3 = K.dropout(K.ones((n_batch, n_layer)), p)
+	if dropout_flag == -2:
+		mask4_x = (1. / p - mask3_x)
+		mask4_1 = (1. / p - mask3_1)
+		mask4_2 = (1. / p - mask3_2)
+		mask4_3 = (1. / p - mask3_3)
+	if dropout_flag == 4:
+		mask4_x = K.dropout(K.ones((n_batch, n_in)), p)
+		mask4_1 = K.dropout(K.ones((n_batch, n_layer)), p)
+		mask4_2 = K.dropout(K.ones((n_batch, n_layer)), p)
+		mask4_3 = K.dropout(K.ones((n_batch, n_layer)), p)
+
 
 	def get_dropout_layer(mask, n, name):
 		return Lambda(lambda x: x * mask, output_shape=(n,), name=name)
@@ -121,11 +154,22 @@ def define_model(n_batch, n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 		dropout1_2 = get_dropout_layer(mask1_2, n_layer, "drop1_2")
 		dropout1_3 = get_dropout_layer(mask1_3, n_layer, "drop1_3")
 
-	if dropout_flag == -1 or dropout_flag == 2:
+	if dropout_flag != 0 and dropout_flag != 1:
 		dropout2_x = get_dropout_layer(mask2_x, n_in, "drop2_x")
 		dropout2_1 = get_dropout_layer(mask2_1, n_layer, "drop2_1")
 		dropout2_2 = get_dropout_layer(mask2_2, n_layer, "drop2_2")
 		dropout2_3 = get_dropout_layer(mask2_3, n_layer, "drop2_3")
+
+	if dropout_flag == -2 or dropout_flag == 4:
+		dropout3_x = get_dropout_layer(mask3_x, n_in, "drop3_x")
+		dropout3_1 = get_dropout_layer(mask3_1, n_layer, "drop3_1")
+		dropout3_2 = get_dropout_layer(mask3_2, n_layer, "drop3_2")
+		dropout3_3 = get_dropout_layer(mask3_3, n_layer, "drop3_3")
+
+		dropout4_x = get_dropout_layer(mask4_x, n_in, "drop4_x")
+		dropout4_1 = get_dropout_layer(mask4_1, n_layer, "drop4_1")
+		dropout4_2 = get_dropout_layer(mask4_2, n_layer, "drop4_2")
+		dropout4_3 = get_dropout_layer(mask4_3, n_layer, "drop4_3")
 
 	# apply model for pass 1
 	if batch_norm and dropout_flag != 0:
@@ -147,10 +191,9 @@ def define_model(n_batch, n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 		layers = [layer1, layer2, layer3, softmax_layer]
 
 	out1 = apply_layers(x, layers)
-	prediction = out1
 
 	# if necessary apply model for pass 2
-	if dropout_flag == -1  or dropout_flag == 2:
+	if dropout_flag != 0 and dropout_flag != 1:
 		if batch_norm:
 			layers = [dropout2_x, layer1, BatchNormalization(mode=2),
 					  dropout2_1, layer2, BatchNormalization(mode=2),
@@ -161,12 +204,45 @@ def define_model(n_batch, n_in, n_layer, n_out, p, dropout_flag, batch_norm):
 					  dropout2_1, layer2,
 					  dropout2_2, layer3,
 					  dropout2_3, softmax_layer]
-
 		out2 = apply_layers(x, layers)
 
-		avg = Lambda(lambda args: 0.5 * (args[0] + args[1]), output_shape=(n_out,))
-		# override prediction
+	if dropout_flag == -2 or dropout_flag == 4:
+		if batch_norm:
+			layers = [dropout3_x, layer1, BatchNormalization(mode=2),
+					  dropout3_1, layer2, BatchNormalization(mode=2),
+					  dropout3_2, layer3, BatchNormalization(mode=2),
+					  dropout3_3, softmax_layer]
+		else:
+			layers = [dropout3_x, layer1,
+					  dropout3_1, layer2,
+					  dropout3_2, layer3,
+					  dropout3_3, softmax_layer]
+		out3 = apply_layers(x, layers)
+
+		if batch_norm:
+			layers = [dropout4_x, layer1, BatchNormalization(mode=2),
+					  dropout4_1, layer2, BatchNormalization(mode=2),
+					  dropout4_2, layer3, BatchNormalization(mode=2),
+					  dropout4_3, softmax_layer]
+		else:
+			layers = [dropout4_x, layer1,
+					  dropout4_1, layer2,
+					  dropout4_2, layer3,
+					  dropout4_3, softmax_layer]
+		out4 = apply_layers(x, layers)
+
+
+	if dropout_flag == 0 or dropout_flag == 1:
+		prediction = out1
+	elif dropout_flag == -1 or dropout_flag == 2:
+		avg = Lambda(lambda args: 0.5 * (args[0] + args[1]),
+			output_shape=(n_out,))
 		prediction = avg([out1, out2])
+	elif dropout_flag == -2 or dropout_flag == 4:
+		avg = Lambda(lambda args: 0.25*(args[0]+args[1]+args[2]+args[3]),
+			output_shape=(n_out,))
+		prediction = avg([out1, out2, out3, out4])
+
 
 	model_stoch = Model(input=x, output=prediction)
 
@@ -214,7 +290,8 @@ def run_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm,
 	# score = model.evaluate(X_test, Y_test, batch_size=n_batch, verbose=0)
 
 	train_losses = []
-	test_losses_stoch = []
+	# test_losses_stoch = []
+	mc_predictions = []
 	test_losses_non_stoch = []
 	train_times = []
 
@@ -222,11 +299,22 @@ def run_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm,
 	batches_per_epoch = len(X_train) / n_batch
 	train_batches = batches_per_epoch * n_epoch
 	test_batches = set()
-	j = 1
-	while j < train_batches - 1:
-		test_batches.add(j)
-		j *= 2
-	test_batches.add(train_batches) # eval model at last batch
+	test_batches_list = []
+	# j = 1
+	# while j < train_batches - 1:
+	# 	test_batches.add(j)
+	# 	j *= 2
+	# test_batches.add(train_batches) # eval model at last batch
+
+	for j in xrange(30):
+		test_batches.add(j*batches_per_epoch)
+		test_batches_list.append(j*batches_per_epoch)
+	for j in xrange(30, 50, 5):
+		test_batches.add(j*batches_per_epoch)
+		test_batches_list.append(j*batches_per_epoch)
+	for j in xrange(50, 101, 10):
+		test_batches.add(j*batches_per_epoch)
+		test_batches_list.append(j*batches_per_epoch)
 
 	# train the model
 	for b in xrange(train_batches):
@@ -236,23 +324,21 @@ def run_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm,
 		train_loss = model_stoch.fit(X_train[batch], Y_train[batch],
 			                         verbose=0, batch_size=n_batch, nb_epoch=1)
 		t = time.time() - start
-		import pdb
-		pdb.set_trace()
 
 		train_losses.append(train_loss.history['loss'][0])	
 		train_times.append(t)
 
-		if b+1 in test_batches:
-			print b+1
-			# ind = np.arange(len(X_test))
-			# np.random.shuffle(ind)
-			test_loss = evaluate_stoch(model_stoch, X_test, Y_test, test_n_batch, n_mc)
-			print(test_loss)
-			test_losses_stoch.append(test_loss)
+		if b in test_batches:
+			print b
+			# test_loss = evaluate_stoch(model_stoch, X_test, Y_test, test_n_batch, n_mc)
+			# print(test_loss)
+			# test_losses_stoch.append(test_loss)
+			mc_predict = compute_mc_probs(model_stoch, X_test, test_n_batch, n_mc)
+			mc_predictions.append(mc_predict)
 
 			test_loss = evaluate_non_stoch(model_non_stoch, model_stoch,
 										   X_test, Y_test, batch_norm, test_n_batch)
-			print(test_loss)
+			# print(test_loss)
 			test_losses_non_stoch.append(test_loss)	
 
-	return train_losses, test_losses_stoch, test_losses_non_stoch, train_times
+	return train_losses, mc_predictions, test_losses_non_stoch, train_times, test_batches_list

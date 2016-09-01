@@ -12,6 +12,7 @@ from keras.datasets import mnist
 from keras.utils import np_utils
 from keras.callbacks import Callback
 import cPickle
+import numpy as np
 
 from models import run_model
 import argparse
@@ -61,20 +62,33 @@ Y_test = np_utils.to_categorical(y_test, n_classes)
 
 ###################################################################
 train_losses = []
-test_losses = []
+# test_losses_stoch = []
+test_mc_probs = []
+test_losses_non_stoch = []
 train_times = []
+test_batches = []
 for i in xrange(n_runs):
+	np.random.seed(i)
+	perm = np.random.permutation(X_train.shape[0])
+	perm_test = np.random.permutation(X_test.shape[0])
+
 	out = run_model(n_in, n_layer, n_out, p, dropout_flag, batch_norm,
-		n_batch, n_epoch, n_mc, X_train, Y_train, X_test, Y_test, test_n_batch)	
+		n_batch, n_epoch, n_mc,
+		X_train[perm], Y_train[perm],
+		X_test[perm_test[:1000]], Y_test[perm_test[:1000]], test_n_batch)
 
 	train_losses.append(out[0])
-	test_losses.append(out[1])
-	train_times.append(out[2])
+	# test_losses_stoch.append(out[1])
+	test_mc_probs.append(out[1])
+	test_losses_non_stoch.append(out[2])
+	train_times.append(out[3])
+	test_batches.append(out[4])
 
 	output = {"train_losses" : train_losses,
-			  "test_losses" : test_losses,	
-			  "train_times" : train_times}
+			  "test_mc_probs" : test_mc_probs,	
+			  "test_losses_non_stoch" : test_losses_non_stoch,	
+			  "train_times" : train_times,
+			  "test_batches" : test_batches}
 
 	with open(save_file, "wb") as f:
 		cPickle.dump(output, f)
-
