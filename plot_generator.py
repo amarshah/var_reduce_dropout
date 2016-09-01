@@ -21,8 +21,13 @@ import matplotlib.pyplot as plt
 
 ###############################################################
 
-save_files = ["mirror.pkl", "dropout.pkl", "dropout2.pkl", "nodropout.pkl"]
+save_files = ["mirror.pkl", "mirror2.pkl",
+              "nodropout.pkl", "dropout.pkl",
+              "dropout2.pkl", "dropout4.pkl"]
 
+n_mc = [50, 25, 1, 100, 50,  25]
+
+batches = []
 results = []
 errors = []
 n_results = []
@@ -30,6 +35,9 @@ for save_file in save_files:
 	with open(save_file, "rb") as f:
 		data = cPickle.load(f)
 	acc = np.array(data["test_losses_non_stoch"])
+	batch = np.log(np.array(data["test_batches"])+1)
+
+	batches.append(batch)
 	results.append(acc.mean(axis=0))
 	errors.append(acc.std(axis=0))
 	n_results.append(acc.shape[-1])
@@ -39,10 +47,12 @@ for save_file in save_files:
 # pdb.set_trace()
 
 fig = plt.figure()
-labels = ["mirror", "1 mask", "2 masks", "0 masks"]
-colors = ["red", "blue", "green", "black"]
+labels = ["mirror", "2 mirrors",
+          "0 masks", "1 mask",
+          "2 masks", "4 masks"]
+colors = ["red", "orange", "black", "blue", "green", "purple"]
 for i in xrange(len(results)):
-	plt.errorbar(np.arange(n_results[i])[6:], results[i][6:],
+	plt.errorbar(batches[i][6:], results[i][6:],
 		         xerr=errors[i][6:], color=colors[i], label=labels[i])
 plt.legend(loc=4)
 
